@@ -1,87 +1,142 @@
-package com.example.fastapicolorgame;
+import java.util.Random;
+import java.util.Scanner;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
+class Player {
+    private String name;
+    private double balance;
 
-import java.util.*;
+    public Player(String name, double balance) {
+        this.name = name;
+        this.balance = balance;
+    }
 
-@SpringBootApplication
-public class FastApiColorGameApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(FastApiColorGameApplication.class, args);
+    public String getName() {
+        return name;
+    }
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public void addBalance(double amount) {
+        balance += amount;
+    }
+
+    public boolean deductBalance(double amount) {
+        if (amount > balance) {
+            System.out.println("❌ Insufficient balance! Please enter a lower amount.");
+            return false;
+        }
+        balance -= amount;
+        return true;
     }
 }
 
-// Game Service
-@RestController
-@RequestMapping("/fast-api")
-class ColorGameController {
-    private static final List<String> COLORS = Arrays.asList("Red", "Blue", "Green");
-    private static final Map<String, String> userColor = new HashMap<>();
-    private static final Map<String, Integer> userScore = new HashMap<>();
-    private static final Map<String, Integer> attemptsLeft = new HashMap<>();
+class BetColorGame {
+    private static final String[] COLORS = {"Red", "Green", "Blue", "Yellow"};
+    private static final Random random = new Random();
+    private static Scanner scanner = new Scanner(System.in);
+    private Player player;
 
-    // Start the game for a user
-    @PostMapping("/start")
-    public ResponseEntity<String> startGame(@RequestParam String user) {
-        String randomColor = COLORS.get(new Random().nextInt(COLORS.size()));
-        userColor.put(user, randomColor);
-        userScore.put(user, 0);
-        attemptsLeft.put(user, 5);
+    public BetColorGame(Player player) {
+        this.player = player;
     }
 
-    // User guesses a color
-    @GetMapping("/guess/{color}")
-    public ResponseEntity<String> guessColor(@RequestParam String user, @PathVariable String color) {
-        if (!userColor.containsKey(user)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Start the game first with /fast-api/start");
+    public void start() {
+        System.out.println("\n🎲 Welcome to the Bet Color Game, " + player.getName() + "! 🎲");
+        System.out.println("🎨 Available colors: Red, Green, Blue, Yellow");
+
+        while (true) {
+            System.out.println("\n💰 Current Balance: $" + player.getBalance());
+            System.out.print("Enter the color you want to bet on (or type 'exit' to quit): ");
+            String chosenColor = scanner.nextLine().trim();
+
+            if (chosenColor.equalsIgnoreCase("exit")) {
+                System.out.println("👋 Thank you for playing! Your final balance: $" + player.getBalance());
+                break;
+            }
+
+            if (!isValidColor(chosenColor)) {
+                System.out.println("❌ Invalid color! Choose from Red, Green, Blue, or Yellow.");
+                continue;
+            }
+
+            System.out.print("Enter your bet amount: $");
+            double betAmount;
+            try {
+                betAmount = Double.parseDouble(scanner.nextLine());
+            } catch (NumberFormatException e) {
+                System.out.println("❌ Invalid bet amount! Please enter a numeric value.");
+                continue;
+            }
+
+            if (betAmount <= 0) {
+                System.out.println("❌ Bet amount must be greater than zero!");
+                continue;
+            }
+
+            if (!player.deductBalance(betAmount)) {
+                continue;
+            }
+
+            String winningColor = COLORS[random.nextInt(COLORS.length)];
+            System.out.println("🎡 Spinning the wheel... 🎡");
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("🎉 The winning color is: " + winningColor + " 🎉");
+
+            if (winningColor.equalsIgnoreCase(chosenColor)) {
+                double winnings = betAmount * 2;
+                player.addBalance(winnings);
+                System.out.println("✅ Congratulations! You won $" + winnings);
+            } else {
+                System.out.println("❌ Oops! You lost $" + betAmount);
+            }
+
+            System.out.println("\n🔄 Do you want to play again? (yes/no): ");
+            String playAgain = scanner.nextLine().trim();
+            if (!playAgain.equalsIgnoreCase("yes")) {
+                System.out.println("👋 Exiting game... Your final balance: $" + player.getBalance());
+                break;
+            }
         }
+    }
 
-        if (attemptsLeft.get(user) <= 0) {
-            return ResponseEntity.ok("No attempts left! Reset the game to play again.");
+    private boolean isValidColor(String color) {
+        for (String validColor : COLORS) {
+            if (validColor.equalsIgnoreCase(color)) {
+                return true;
+            }
         }
+        return false;
+    }
+}
 
-        String correctColor = userColor.get(user);
-        if (correctColor.equalsIgnoreCase(color)) {
-            userScore.put(user, userScore.get(user) + 10);
-            return ResponseEntity.ok("Correct! Your score: " + userScore.get(user) + ". Start a new game to play again.");
-        } else {
-            attemptsLeft.put(user, attemptsLeft.get(user) - 1);
-            return ResponseEntity.ok("Wrong! Attempts left: " + attemptsLeft.get(user));
+public class ColorBetMain {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        
+        System.out.println("🛑 Welcome to the Color Bet Game! 🛑");
+        System.out.print("Enter your name: ");
+        String playerName = scanner.nextLine();
+        
+        System.out.print("Enter your starting balance: $");
+        double initialBalance;
+        try {
+            initialBalance = Double.parseDouble(scanner.nextLine());
+        } catch (NumberFormatException e) {
+            System.out.println("❌ Invalid balance! Setting default balance to $100.");
+            initialBalance = 100;
         }
-    }
-
-    // Get user score
-    @GetMapping("/score")
-    public ResponseEntity<String> getScore(@RequestParam String user) {
-        return userScore.containsKey(user) ?
-                ResponseEntity.ok("Your score: " + userScore.get(user)) :
-                ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Start the game first!");
-    }
-
-    // Get remaining attempts
-    @GetMapping("/attempts")
-    public ResponseEntity<String> getAttemptsLeft(@RequestParam String user) {
-        return attemptsLeft.containsKey(user) ?
-                ResponseEntity.ok("Attempts left: " + attemptsLeft.get(user)) :
-                ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Start the game first!");
-    }
-
-    // Reset the game
-    @PostMapping("/reset")
-    public ResponseEntity<String> resetGame(@RequestParam String user) {
-        userColor.remove(user);
-        userScore.remove(user);
-        attemptsLeft.remove(user);
-        return ResponseEntity.ok("Game reset for " + user + ". Start a new game to play again.");
-    }
-
-    // Get list of available colors
-    @GetMapping("/colors")
-    public ResponseEntity<List<String>> getColors() {
-        return ResponseEntity.ok(COLORS);
+        
+        Player player = new Player(playerName, initialBalance);
+        BetColorGame game = new BetColorGame(player);
+        game.start();
+        
+        scanner.close();
     }
 }
